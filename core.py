@@ -1,10 +1,8 @@
 # core.py
 
 import torch
-import nltk
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from nltk.corpus import stopwords
-from nltk.tokenize import word_tokenize
 from collections import Counter
 from jinja2 import Environment, BaseLoader
 from docx import Document
@@ -30,17 +28,34 @@ def load_model():
 # -----------------------
 # ATS OPTIMIZER
 # -----------------------
+# core.py
+
+import re
+from collections import Counter
+
 class ATSOptimizer:
     def __init__(self):
-        self.stop_words = set(stopwords.words("english"))
+        self.stopwords = {
+            "and", "or", "the", "a", "an", "to", "in", "of", "for",
+            "with", "on", "at", "by", "from", "is", "are", "as"
+        }
 
-    def extract_keywords(self, job_desc, top_n=15):
-        tokens = word_tokenize(job_desc.lower())
-        words = [
-            w for w in tokens
-            if w.isalnum() and w not in self.stop_words and len(w) > 3
-        ]
-        return [w for w, _ in Counter(words).most_common(top_n)]
+    def extract_keywords(self, job_desc, top_n=20):
+        if not job_desc:
+            return []
+
+        # Regex-based tokenization (NO NLTK)
+        tokens = re.findall(r"\b[a-zA-Z]{2,}\b", job_desc.lower())
+
+        # Remove stopwords
+        filtered_tokens = [t for t in tokens if t not in self.stopwords]
+
+        # Count word frequency
+        freq = Counter(filtered_tokens)
+
+        # Return top keywords
+        return [word for word, _ in freq.most_common(top_n)]
+
 
 # -----------------------
 # AI GENERATOR
@@ -81,4 +96,5 @@ class DocumentGenerator:
         doc.add_paragraph(", ".join(profile["skills"]))
 
         doc.save(filename)
+
         return filename
