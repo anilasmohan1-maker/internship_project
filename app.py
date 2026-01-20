@@ -47,6 +47,8 @@ def load_model():
     model.eval()
 
     return tokenizer, model
+    tokenizer, model = load_model()
+
 
 
 # -------------------------------------------------
@@ -174,6 +176,12 @@ class DocumentGenerator:
             z.writestr("cover_letter.txt", cover_letter)
             z.writestr("profile.json", json.dumps(profile, indent=2))
         return zip_name
+# -------------------------------------------------
+# OBJECT CREATION (AFTER CLASSES)
+# -------------------------------------------------
+ats = ATSOptimizer()
+generator = ContentGenerator(model, tokenizer)
+docgen = DocumentGenerator()
 
 # -------------------------------------------------
 # SIDEBAR UI
@@ -226,6 +234,7 @@ if st.button("✨ Generate Resume & Portfolio"):
         st.download_button("⬇️ Download Resume (HTML)", resume_html, "resume.html")
         st.download_button("⬇️ Download Resume (DOCX)", open(docx_path, "rb"), "resume.docx")
         st.download_button("⬇️ Download Portfolio (ZIP)", open(zip_path, "rb"), zip_path)
+
 
 
 
