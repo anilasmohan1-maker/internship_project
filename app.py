@@ -36,6 +36,9 @@ setup_nltk()
 # -------------------------------------------------
 # MODEL LOADING (CACHED)
 # -------------------------------------------------
+# -------------------------------------------------
+# MODEL LOADING (MUST BE TOP-LEVEL)
+# -------------------------------------------------
 @st.cache_resource
 def load_model():
     model_name = "sshleifer/tiny-gpt2"
@@ -47,7 +50,11 @@ def load_model():
     model.eval()
 
     return tokenizer, model
-    tokenizer, model = load_model()
+
+
+
+tokenizer, model = load_model()
+
 
 
 
@@ -234,6 +241,7 @@ if st.button("✨ Generate Resume & Portfolio"):
         st.download_button("⬇️ Download Resume (HTML)", resume_html, "resume.html")
         st.download_button("⬇️ Download Resume (DOCX)", open(docx_path, "rb"), "resume.docx")
         st.download_button("⬇️ Download Portfolio (ZIP)", open(zip_path, "rb"), zip_path)
+
 
 
 
