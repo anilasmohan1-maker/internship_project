@@ -1,6 +1,9 @@
 streamlit
-torch
-transformers
-nltk
 jinja2
 python-docx
+nltk
+transformers
+accelerate
+bitsandbytes
+torch
+sentencepiece
