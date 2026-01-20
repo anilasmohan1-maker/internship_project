@@ -3,7 +3,6 @@ jinja2
 python-docx
 nltk
 transformers
-accelerate
-bitsandbytes
 torch
 sentencepiece
+
