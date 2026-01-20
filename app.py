@@ -26,10 +26,12 @@ st.set_page_config(
 # -------------------------------------------------
 # NLTK SETUP (CACHED)
 # -------------------------------------------------
+
 @st.cache_resource
 def setup_nltk():
-    nltk.download("punkt")
-    nltk.download("stopwords")
+    nltk.download("punkt", quiet=True)
+    nltk.download("punkt_tab", quiet=True)
+    nltk.download("stopwords", quiet=True)
 
 setup_nltk()
 
@@ -67,12 +69,9 @@ class ATSOptimizer:
         self.stop_words = set(stopwords.words("english"))
 
     def extract_keywords(self, text, top_n=20):
-        from nltk.tokenize import word_tokenize
-        tokens = word_tokenize(text.lower())
-        filtered = [
-            w for w in tokens
-            if w.isalnum() and w not in self.stop_words and len(w) > 3
-        ]
+        import re
+        tokens = re.findall(r"\b[a-zA-Z]{4,}\b", text.lower())
+        filtered = [w for w in tokens if w not in self.stop_words]
         return [w for w, _ in Counter(filtered).most_common(top_n)]
 
 # -------------------------------------------------
@@ -241,6 +240,7 @@ if st.button("✨ Generate Resume & Portfolio"):
         st.download_button("⬇️ Download Resume (HTML)", resume_html, "resume.html")
         st.download_button("⬇️ Download Resume (DOCX)", open(docx_path, "rb"), "resume.docx")
         st.download_button("⬇️ Download Portfolio (ZIP)", open(zip_path, "rb"), zip_path)
+
 
 
 
