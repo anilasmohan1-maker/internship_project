@@ -39,15 +39,15 @@ setup_nltk()
 @st.cache_resource
 def load_model():
     model_name = "sshleifer/tiny-gpt2"
+
     tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModelForCausalLM.from_pretrained(
-        model_name,
-        device_map="auto",
-        torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32
-    )
+    tokenizer.pad_token = tokenizer.eos_token
+
+    model = AutoModelForCausalLM.from_pretrained(model_name)
+    model.eval()
+
     return tokenizer, model
 
-tokenizer, model = load_model()
 
 # -------------------------------------------------
 # ATS OPTIMIZER
@@ -226,5 +226,6 @@ if st.button("✨ Generate Resume & Portfolio"):
         st.download_button("⬇️ Download Resume (HTML)", resume_html, "resume.html")
         st.download_button("⬇️ Download Resume (DOCX)", open(docx_path, "rb"), "resume.docx")
         st.download_button("⬇️ Download Portfolio (ZIP)", open(zip_path, "rb"), zip_path)
+
 
 
