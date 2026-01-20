@@ -38,7 +38,7 @@ setup_nltk()
 # -------------------------------------------------
 @st.cache_resource
 def load_model():
-    model_name = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+    model_name = ""sshleifer/tiny-gpt2""
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
@@ -226,3 +226,4 @@ if st.button("✨ Generate Resume & Portfolio"):
         st.download_button("⬇️ Download Resume (HTML)", resume_html, "resume.html")
         st.download_button("⬇️ Download Resume (DOCX)", open(docx_path, "rb"), "resume.docx")
         st.download_button("⬇️ Download Portfolio (ZIP)", open(zip_path, "rb"), zip_path)
+
