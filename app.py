@@ -46,9 +46,10 @@ def load_hf_client():
         raise ValueError("HF_API_KEY not found. Set it in Streamlit secrets or environment.")
 
     return InferenceClient(
-        model="mistralai/Mistral-7B-Instruct-v0.2",
+        model="HuggingFaceH4/zephyr-7b-beta",
         token=HF_API_KEY
     )
+
 
 hf_client = load_hf_client()
 
@@ -270,3 +271,4 @@ if st.button("✨ Generate Resume & Portfolio"):
         st.download_button("⬇️ Resume (HTML)", resume_html, "resume.html")
         st.download_button("⬇️ Resume (DOCX)", open(docx_path, "rb"), "resume.docx")
         st.download_button("⬇️ Portfolio (ZIP)", open(zip_path, "rb"), zip_path)
+
