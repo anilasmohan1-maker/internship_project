@@ -124,7 +124,7 @@ def generate_docx(filename, profile, summary, experiences, cover_letter_text=Non
     # Experience
     doc.add_heading("Experience", level=2)
     for exp, bullets in experiences:
-        p = doc.add_paragraph(f"{exp['title']} – {exp['company']}", style="List Bullet")
+        doc.add_paragraph(f"{exp['title']} – {exp['company']}", style="List Bullet")
         doc.add_paragraph(bullets)
 
     # Skills
@@ -171,7 +171,6 @@ profile = {
     )
 }
 
-# For simplicity, allow 1-3 experiences
 num_exp = st.sidebar.slider("Number of Experiences", 1, 3, 1)
 experiences = []
 for i in range(num_exp):
