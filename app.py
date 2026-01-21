@@ -37,7 +37,7 @@ def setup_nltk():
 setup_nltk()
 
 # -------------------------------------------------
-# LOAD HF CLIENT (STABLE INSTRUCT MODEL)
+# LOAD HF CLIENT (TinyLlama – Stable)
 # -------------------------------------------------
 @st.cache_resource
 def load_hf_client():
@@ -66,7 +66,7 @@ class ATSOptimizer:
         return [w for w, _ in Counter(filtered).most_common(top_n)]
 
 # -------------------------------------------------
-# AI CONTENT GENERATOR
+# AI CONTENT GENERATOR (TinyLlama Optimized Prompts)
 # -------------------------------------------------
 class ContentGenerator:
     def __init__(self, client):
@@ -76,7 +76,7 @@ class ContentGenerator:
         response = self.client.text_generation(
             prompt=prompt,
             max_new_tokens=max_tokens,
-            temperature=0.35,
+            temperature=0.3,
             top_p=0.9,
             repetition_penalty=1.1
         )
@@ -84,32 +84,34 @@ class ContentGenerator:
 
     def generate_summary(self, profile):
         prompt = f"""
-Write a realistic, ATS-optimized professional summary (3–4 lines).
+Write a professional resume summary (3–4 sentences).
 
 Candidate Name: {profile['name']}
 Target Role: {profile['targets']['title']}
 Key Skills: {", ".join(profile['skills'])}
 
-Rules:
+Guidelines:
 - Mention estimated years of experience
-- Mention tools, frameworks, or domains
-- Avoid buzzwords
-- Sound human and professional
+- Mention tools, technologies, or domains
+- Avoid buzzwords like "passionate" or "hardworking"
+- Write in simple, clear, resume-style language
+- Do NOT use headings or bullet points
 """
         return self._generate(prompt, 160)
 
     def generate_bullets(self, exp, keywords):
         prompt = f"""
-Write 3–4 resume bullet points.
+Write 3–4 strong resume bullet points for this role.
 
 Role: {exp['title']}
 Company: {exp['company']}
 Work Description: {exp['description']}
 
 Rules:
-- Start bullets with action verbs
-- Include tools, technologies, datasets, metrics
-- ATS optimized but natural
+- Start each bullet with •
+- Use action verbs (designed, built, implemented, analyzed)
+- Mention tools, frameworks, datasets, or metrics
+- Keep bullets realistic and concise
 - No filler text
 
 Important Keywords: {", ".join(keywords)}
@@ -118,7 +120,7 @@ Important Keywords: {", ".join(keywords)}
 
     def generate_cover_letter(self, profile):
         prompt = f"""
-Write a concise professional cover letter (3 short paragraphs).
+Write a professional cover letter in 3 short paragraphs.
 
 Candidate Name: {profile['name']}
 Email: {profile['email']}
@@ -128,11 +130,11 @@ LinkedIn: {profile['linkedin']}
 Target Role: {profile['targets']['title']}
 Company: {profile['targets']['company']}
 
-Tone:
-- Professional
-- Clear
-- Confident
+Tone and Style:
+- Professional and confident
+- Clear and simple language
 - No AI buzzwords
+- No exaggerated claims
 """
         return self._generate(prompt, 350)
 
@@ -264,5 +266,3 @@ if st.button("✨ Generate Resume & Portfolio"):
         st.download_button("⬇️ Resume (HTML)", resume_html, "resume.html")
         st.download_button("⬇️ Resume (DOCX)", open(docx_path, "rb"), "resume.docx")
         st.download_button("⬇️ Portfolio (ZIP)", open(zip_path, "rb"), zip_path)
-
-
