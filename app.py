@@ -15,7 +15,7 @@ st.set_page_config(page_title="AI Resume Builder", layout="wide")
 HF_API_KEY = st.secrets["HF_API_KEY"]
 
 client = InferenceClient(
-    model="TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+    model="OpenAssistant/release",
     token=HF_API_KEY
 )
 
@@ -165,3 +165,4 @@ if st.button("Generate Resume"):
         open(doc_path, "rb"),
         file_name="AI_Resume.docx"
     )
+
