@@ -46,7 +46,7 @@ def load_hf_client():
         raise ValueError("HF_API_KEY not found. Set it in Streamlit secrets.")
 
     return InferenceClient(
-        model="mistralai/Mistral-7B-Instruct-v0.2",
+        model="google/flan-t5-xl",
         token=HF_API_KEY,
         timeout=120
     )
@@ -211,7 +211,7 @@ st.sidebar.title("⚙️ Candidate Details")
 
 user_name = st.sidebar.text_input("Full Name", "Anila R")
 user_email = st.sidebar.text_input("Email", "anila.r@email.com")
-user_phone = st.sidebar.text_input("Phone", "+91 98765 43210")
+user_phone = st.sidebar.text_input("Phone", "+91 99999 42240")
 user_linkedin = st.sidebar.text_input("LinkedIn", "https://linkedin.com/in/anilar")
 
 st.sidebar.markdown("---")
@@ -264,3 +264,4 @@ if st.button("✨ Generate Resume & Portfolio"):
         st.download_button("⬇️ Resume (HTML)", resume_html, "resume.html")
         st.download_button("⬇️ Resume (DOCX)", open(docx_path, "rb"), "resume.docx")
         st.download_button("⬇️ Portfolio (ZIP)", open(zip_path, "rb"), zip_path)
+
