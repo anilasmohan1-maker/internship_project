@@ -199,7 +199,7 @@ if st.button("Generate Resume, Portfolio & Cover Letter"):
 
         # Generate DOCX files
         resume_docx = generate_docx("resume.docx", profile, summary, list(zip(experiences, exp_bullets)))
-        cover_docx = generate_docx("cover_letter.docx", profile, summary, [], cover_letter_text)
+        cover_docx = generate_docx("cover_letter.docx", profile, summary, [])
         portfolio_docx = generate_docx("portfolio.docx", profile, summary, list(zip(experiences, exp_bullets)))
 
         # Create ZIP
@@ -228,5 +228,6 @@ if st.button("Generate Resume, Portfolio & Cover Letter"):
     st.download_button("Download Cover Letter (DOCX)", open(cover_docx, "rb"), file_name="cover_letter.docx")
     st.download_button("Download Portfolio (DOCX)", open(portfolio_docx, "rb"), file_name="portfolio.docx")
     st.download_button("Download All Files (ZIP)", open(zip_file, "rb"), file_name="portfolio.zip")
+
 
 
