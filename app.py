@@ -1,268 +1,167 @@
 import streamlit as st
-import json
-import zipfile
-from datetime import datetime
-from pathlib import Path
-from collections import Counter
-import os
-import re
-
-import nltk
-from nltk.corpus import stopwords
-
 from huggingface_hub import InferenceClient
-from jinja2 import Environment, BaseLoader
 from docx import Document
 from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 
-from samples import SAMPLE_PROFILES
-
-# -------------------------------------------------
+# --------------------------------------------------
 # PAGE CONFIG
-# -------------------------------------------------
-st.set_page_config(
-    page_title="AI Resume & Portfolio Builder",
-    layout="wide"
+# --------------------------------------------------
+st.set_page_config(page_title="AI Resume Builder", layout="wide")
+
+# --------------------------------------------------
+# HF CLIENT (CHAT MODEL ONLY)
+# --------------------------------------------------
+HF_API_KEY = st.secrets["HF_API_KEY"]
+
+client = InferenceClient(
+    model="TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+    token=HF_API_KEY
 )
 
-# -------------------------------------------------
-# NLTK SETUP
-# -------------------------------------------------
-@st.cache_resource
-def setup_nltk():
-    nltk.download("punkt", quiet=True)
-    nltk.download("stopwords", quiet=True)
-
-setup_nltk()
-
-# -------------------------------------------------
-# LOAD HF CLIENT (TinyLlama – Stable)
-# -------------------------------------------------
-@st.cache_resource
-def load_hf_client():
-    HF_API_KEY = st.secrets.get("HF_API_KEY") or os.getenv("HF_API_KEY")
-    if not HF_API_KEY:
-        raise ValueError("HF_API_KEY not found. Set it in Streamlit secrets.")
-
-    return InferenceClient(
-        model="TinyLlama/TinyLlama-1.1B-Chat-v1.0",
-        token=HF_API_KEY,
-        timeout=120
-    )
-
-hf_client = load_hf_client()
-
-# -------------------------------------------------
-# ATS OPTIMIZER
-# -------------------------------------------------
-class ATSOptimizer:
-    def __init__(self):
-        self.stop_words = set(stopwords.words("english"))
-
-    def extract_keywords(self, text, top_n=20):
-        tokens = re.findall(r"\b[a-zA-Z]{4,}\b", text.lower())
-        filtered = [w for w in tokens if w not in self.stop_words]
-        return [w for w, _ in Counter(filtered).most_common(top_n)]
-
-# -------------------------------------------------
-# AI CONTENT GENERATOR (TinyLlama Optimized Prompts)
-# -------------------------------------------------
-class ContentGenerator:
-    def __init__(self, client):
-        self.client = client
-
-    def _generate(self, prompt, max_tokens=300):
-        response = self.client.text_generation(
-            prompt=prompt,
-            max_new_tokens=max_tokens,
-            temperature=0.3,
-            top_p=0.9,
-            repetition_penalty=1.1
+# --------------------------------------------------
+# SIMPLE CHATBOT GENERATOR
+# --------------------------------------------------
+class ChatbotGenerator:
+    def chat(self, system_prompt, user_prompt, max_tokens=300):
+        response = client.chat_completion(
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            max_tokens=max_tokens,
+            temperature=0.7
         )
-        return response.strip()
+        return response.choices[0].message["content"].strip()
 
-    def generate_summary(self, profile):
-        prompt = f"""
-Write a professional resume summary (3–4 sentences).
+    def resume_summary(self, profile):
+        return self.chat(
+            "You are an expert resume writer.",
+            f"""
+Write a strong professional resume summary.
 
-Candidate Name: {profile['name']}
-Target Role: {profile['targets']['title']}
-Key Skills: {", ".join(profile['skills'])}
-
-Guidelines:
-- Mention estimated years of experience
-- Mention tools, technologies, or domains
-- Avoid buzzwords like "passionate" or "hardworking"
-- Write in simple, clear, resume-style language
-- Do NOT use headings or bullet points
+Name: {profile['name']}
+Target Role: {profile['role']}
+Skills: {', '.join(profile['skills'])}
+Experience Level: {profile['experience_level']}
 """
-        return self._generate(prompt, 160)
+        )
 
-    def generate_bullets(self, exp, keywords):
-        prompt = f"""
-Write 3–4 strong resume bullet points for this role.
+    def experience_bullets(self, exp):
+        return self.chat(
+            "You write impactful resume bullet points.",
+            f"""
+Create 3 resume bullet points.
 
 Role: {exp['title']}
 Company: {exp['company']}
-Work Description: {exp['description']}
-
-Rules:
-- Start each bullet with •
-- Use action verbs (designed, built, implemented, analyzed)
-- Mention tools, frameworks, datasets, or metrics
-- Keep bullets realistic and concise
-- No filler text
-
-Important Keywords: {", ".join(keywords)}
+Description: {exp['description']}
 """
-        return self._generate(prompt, 220)
+        )
 
-    def generate_cover_letter(self, profile):
-        prompt = f"""
-Write a professional cover letter in 3 short paragraphs.
+    def cover_letter(self, profile):
+        return self.chat(
+            "You are a professional HR cover letter writer.",
+            f"""
+Write a concise cover letter.
 
-Candidate Name: {profile['name']}
-Email: {profile['email']}
-Phone: {profile['phone']}
-LinkedIn: {profile['linkedin']}
-
-Target Role: {profile['targets']['title']}
-Company: {profile['targets']['company']}
-
-Tone and Style:
-- Professional and confident
-- Clear and simple language
-- No AI buzzwords
-- No exaggerated claims
+Name: {profile['name']}
+Role: {profile['role']}
+Company: {profile['company']}
+Skills: {', '.join(profile['skills'])}
 """
-        return self._generate(prompt, 350)
-
-# -------------------------------------------------
-# DOCUMENT GENERATOR
-# -------------------------------------------------
-class DocumentGenerator:
-    def __init__(self):
-        self.env = Environment(loader=BaseLoader())
-        self.template_path = Path("resume.html")
-
-    def render_html(self, profile, summary, exp_with_bullets):
-        template = self.env.from_string(
-            self.template_path.read_text(encoding="utf-8")
-        )
-        return template.render(
-            profile=profile,
-            summary=summary,
-            exp_with_bullets=exp_with_bullets
         )
 
-    def generate_docx(self, profile, summary, exp_with_bullets):
-        doc = Document()
+# --------------------------------------------------
+# DOCX GENERATOR
+# --------------------------------------------------
+def generate_docx(profile, summary, experiences):
+    doc = Document()
 
-        header = doc.add_paragraph(profile["name"])
-        header.runs[0].font.size = Pt(24)
-        header.runs[0].bold = True
-        header.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    name = doc.add_paragraph(profile["name"])
+    name.runs[0].bold = True
+    name.runs[0].font.size = Pt(22)
+    name.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-        contact = doc.add_paragraph(
-            f"{profile['email']} | {profile['phone']} | {profile['linkedin']}"
-        )
-        contact.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    contact = doc.add_paragraph(
+        f"{profile['email']} | {profile['phone']} | {profile['linkedin']}"
+    )
+    contact.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-        doc.add_heading("Professional Summary", level=2)
-        doc.add_paragraph(summary)
+    doc.add_heading("Professional Summary", level=2)
+    doc.add_paragraph(summary)
 
-        doc.add_heading("Experience", level=2)
-        for exp, bullets in exp_with_bullets:
-            p = doc.add_paragraph()
-            p.add_run(f"{exp['title']} | {exp['company']}").bold = True
-            doc.add_paragraph(bullets)
+    doc.add_heading("Experience", level=2)
+    for exp, bullets in experiences:
+        doc.add_paragraph(f"{exp['title']} – {exp['company']}", style="List Bullet")
+        doc.add_paragraph(bullets)
 
-        doc.add_heading("Education", level=2)
-        for edu in profile["education"]:
-            p = doc.add_paragraph()
-            p.add_run(edu["degree"]).bold = True
-            p.add_run(f" | {edu['institution']} | GPA: {edu['gpa']}")
+    doc.add_heading("Skills", level=2)
+    doc.add_paragraph(", ".join(profile["skills"]))
 
-        doc.add_heading("Skills", level=2)
-        doc.add_paragraph(", ".join(profile["skills"]))
+    file_path = "resume.docx"
+    doc.save(file_path)
+    return file_path
 
-        path = "resume.docx"
-        doc.save(path)
-        return path
+# --------------------------------------------------
+# SIDEBAR INPUT
+# --------------------------------------------------
+st.sidebar.title("Candidate Details")
 
-    def create_zip(self, html, cover_letter, profile):
-        zip_name = f"portfolio_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
-        with zipfile.ZipFile(zip_name, "w") as z:
-            z.writestr("resume.html", html)
-            z.writestr("cover_letter.txt", cover_letter)
-            z.writestr("profile.json", json.dumps(profile, indent=2))
-        return zip_name
+profile = {
+    "name": st.sidebar.text_input("Full Name", "Anila R"),
+    "email": st.sidebar.text_input("Email", "anila@email.com"),
+    "phone": st.sidebar.text_input("Phone", "+91 90000 00000"),
+    "linkedin": st.sidebar.text_input("LinkedIn", "linkedin.com/in/anila"),
+    "role": st.sidebar.text_input("Target Role", "Machine Learning Engineer"),
+    "company": st.sidebar.text_input("Target Company", "Tech Company"),
+    "experience_level": st.sidebar.selectbox(
+        "Experience Level", ["Fresher", "1-3 Years", "3-5 Years"]
+    ),
+    "skills": st.sidebar.multiselect(
+        "Skills",
+        ["Python", "Machine Learning", "Deep Learning", "NLP", "SQL", "TensorFlow"],
+        default=["Python", "Machine Learning", "NLP"]
+    )
+}
 
-# -------------------------------------------------
-# OBJECTS
-# -------------------------------------------------
-ats = ATSOptimizer()
-generator = ContentGenerator(hf_client)
-docgen = DocumentGenerator()
+experiences = [
+    {
+        "title": "AI Intern",
+        "company": "Research Lab",
+        "description": "Worked on machine learning and NLP projects"
+    }
+]
 
-# -------------------------------------------------
-# SIDEBAR UI
-# -------------------------------------------------
-st.sidebar.title("⚙️ Candidate Details")
-
-user_name = st.sidebar.text_input("Full Name", "Anila R")
-user_email = st.sidebar.text_input("Email", "anila.r@email.com")
-user_phone = st.sidebar.text_input("Phone", "+91 99999 42240")
-user_linkedin = st.sidebar.text_input("LinkedIn", "https://linkedin.com/in/anilar")
-
-st.sidebar.markdown("---")
-
-profile_key = st.sidebar.selectbox(
-    "Choose Sample Profile",
-    list(SAMPLE_PROFILES.keys()),
-    index=0
-)
-
-profile = SAMPLE_PROFILES[profile_key].copy()
-profile.update({
-    "name": user_name,
-    "email": user_email,
-    "phone": user_phone,
-    "linkedin": user_linkedin
-})
-
-# -------------------------------------------------
+# --------------------------------------------------
 # MAIN UI
-# -------------------------------------------------
-st.title("🤖 AI Resume & Portfolio Builder")
+# --------------------------------------------------
+st.title("🤖 AI Resume Builder (HF API – Chatbot Based)")
 
-if st.button("✨ Generate Resume & Portfolio"):
-    with st.spinner("Generating professional resume content..."):
-        keywords = ats.extract_keywords(profile["targets"]["job_description"])
-        summary = generator.generate_summary(profile)
+generator = ChatbotGenerator()
 
-        bullets = [
-            generator.generate_bullets(exp, keywords)
-            for exp in profile["experience"]
+if st.button("Generate Resume"):
+    with st.spinner("Generating resume using Hugging Face Chat API..."):
+        summary = generator.resume_summary(profile)
+        exp_bullets = [
+            generator.experience_bullets(exp) for exp in experiences
         ]
+        cover_letter = generator.cover_letter(profile)
 
-        cover_letter = generator.generate_cover_letter(profile)
-        exp_with_bullets = list(zip(profile["experience"], bullets))
+        doc_path = generate_docx(
+            profile,
+            summary,
+            list(zip(experiences, exp_bullets))
+        )
 
-        resume_html = docgen.render_html(profile, summary, exp_with_bullets)
-        docx_path = docgen.generate_docx(profile, summary, exp_with_bullets)
-        zip_path = docgen.create_zip(resume_html, cover_letter, profile)
+    st.subheader("Resume Summary")
+    st.write(summary)
 
-    tabs = st.tabs(["📄 Resume Preview", "✉️ Cover Letter", "⬇️ Downloads"])
+    st.subheader("Cover Letter")
+    st.write(cover_letter)
 
-    with tabs[0]:
-        st.components.v1.html(resume_html, height=900, scrolling=True)
-
-    with tabs[1]:
-        st.text_area("Cover Letter", cover_letter, height=450)
-
-    with tabs[2]:
-        st.download_button("⬇️ Resume (HTML)", resume_html, "resume.html")
-        st.download_button("⬇️ Resume (DOCX)", open(docx_path, "rb"), "resume.docx")
-        st.download_button("⬇️ Portfolio (ZIP)", open(zip_path, "rb"), zip_path)
+    st.download_button(
+        "Download Resume (DOCX)",
+        open(doc_path, "rb"),
+        file_name="AI_Resume.docx"
+    )
