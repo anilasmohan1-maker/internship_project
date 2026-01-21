@@ -15,7 +15,7 @@ st.set_page_config(page_title="AI Resume Builder", layout="wide")
 HF_API_KEY = st.secrets["HF_API_KEY"]
 
 client = InferenceClient(
-    model="OpenAssistant/release",
+    model="togethercomputer/RedPajama-INCITE-Chat-3B-v1",
     token=HF_API_KEY
 )
 
@@ -165,4 +165,5 @@ if st.button("Generate Resume"):
         open(doc_path, "rb"),
         file_name="AI_Resume.docx"
     )
+
 
