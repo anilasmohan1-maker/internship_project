@@ -4,14 +4,17 @@ import zipfile
 from datetime import datetime
 from pathlib import Path
 from collections import Counter
+import os
+import re
 
 import nltk
-import torch
+from nltk.corpus import stopwords
+
+from huggingface_hub import InferenceClient
 from jinja2 import Environment, BaseLoader
 from docx import Document
 from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from transformers import AutoTokenizer, AutoModelForCausalLM
 
 from samples import SAMPLE_PROFILES
 
@@ -34,98 +37,97 @@ def setup_nltk():
 setup_nltk()
 
 # -------------------------------------------------
-# MODEL LOADING
+# LOAD HF INFERENCE CLIENT (REAL MODEL)
 # -------------------------------------------------
 @st.cache_resource
-def load_model():
-    model_name = "sshleifer/tiny-gpt2"
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    tokenizer.pad_token = tokenizer.eos_token
-    model = AutoModelForCausalLM.from_pretrained(model_name)
-    model.eval()
-    return tokenizer, model
+def load_hf_client():
+    HF_API_KEY = st.secrets.get("HF_API_KEY") or os.getenv("HF_API_KEY")
+    if not HF_API_KEY:
+        raise ValueError("HF_API_KEY not found. Set it in Streamlit secrets or environment.")
 
-tokenizer, model = load_model()
+    return InferenceClient(
+        model="mistralai/Mistral-7B-Instruct-v0.2",
+        token=HF_API_KEY
+    )
+
+hf_client = load_hf_client()
 
 # -------------------------------------------------
 # ATS OPTIMIZER
 # -------------------------------------------------
 class ATSOptimizer:
     def __init__(self):
-        from nltk.corpus import stopwords
         self.stop_words = set(stopwords.words("english"))
 
     def extract_keywords(self, text, top_n=20):
-        import re
         tokens = re.findall(r"\b[a-zA-Z]{4,}\b", text.lower())
         filtered = [w for w in tokens if w not in self.stop_words]
         return [w for w, _ in Counter(filtered).most_common(top_n)]
 
 # -------------------------------------------------
-# AI CONTENT GENERATOR (IMPROVED REALISM)
+# AI CONTENT GENERATOR (MISTRAL 7B)
 # -------------------------------------------------
 class ContentGenerator:
-    def __init__(self, model, tokenizer):
-        self.model = model
-        self.tokenizer = tokenizer
+    def __init__(self, client):
+        self.client = client
 
-    def _generate(self, prompt, max_tokens):
-        inputs = self.tokenizer(prompt, return_tensors="pt")
-        with torch.no_grad():
-            output = self.model.generate(
-                **inputs,
-                max_new_tokens=max_tokens,
-                temperature=0.3,
-                top_p=0.9,
-                repetition_penalty=1.15
-            )
-        text = self.tokenizer.decode(output[0], skip_special_tokens=True)
-        return text.replace(prompt, "").strip()
+    def _generate(self, prompt, max_tokens=400):
+        response = self.client.text_generation(
+            prompt,
+            max_new_tokens=max_tokens,
+            temperature=0.4,
+            top_p=0.9,
+            repetition_penalty=1.1
+        )
+        return response.strip()
 
-    # 🔹 PROFESSIONAL SUMMARY
     def generate_summary(self, profile):
         prompt = f"""
-Write a strong professional resume summary (3–4 lines).
+[INST]
+You are a professional resume writer.
+
+Write a realistic, ATS-optimized professional summary (3–4 lines).
 
 Candidate: {profile['name']}
 Target Role: {profile['targets']['title']}
-Experience: {profile['targets'].get('experience_level', 'Entry to Mid')}
-Key Skills: {", ".join(profile['skills'][:10])}
+Skills: {", ".join(profile['skills'])}
 
 Rules:
-- Mention years of experience (estimate if needed)
-- Highlight impact, not responsibilities
-- ATS-friendly but natural
-- Avoid buzzwords like "dynamic", "passionate", "results-driven"
+- Mention years of experience (estimate realistically)
+- Include tools, technologies, or domains
+- Avoid buzzwords and generic phrases
+- Sound like a real resume written by a human
+[/INST]
 """
-        return self._generate(prompt, 200)
+        return self._generate(prompt, 180)
 
-    # 🔹 EXPERIENCE BULLETS
     def generate_bullets(self, exp, keywords):
         prompt = f"""
-Generate 3–4 resume bullet points.
+[INST]
+Write real resume bullet points.
 
 Role: {exp['title']}
 Company: {exp['company']}
-Work Description: {exp['description']}
+Context: {exp['description']}
 
-Guidelines:
-- Start with strong action verbs
-- Include tools, frameworks, or technologies
-- Add measurable impact where possible (%, time saved, scale)
-- One bullet per line, start with •
-- Optimize for ATS
+Rules:
+- 3–4 bullets
+- Start each bullet with •
+- Use action verbs
+- Mention tools, frameworks, metrics, datasets
+- ATS-optimized but human
 
-Keywords: {", ".join(keywords[:12])}
+Keywords: {", ".join(keywords)}
+[/INST]
 """
-        return self._generate(prompt, 240)
+        return self._generate(prompt, 250)
 
-    # 🔹 COVER LETTER
     def generate_cover_letter(self, profile):
         prompt = f"""
-Write a concise, professional cover letter (3 paragraphs).
+[INST]
+Write a concise professional cover letter (3 paragraphs).
 
-Candidate Name: {profile['name']}
+Candidate: {profile['name']}
 Email: {profile['email']}
 Phone: {profile['phone']}
 LinkedIn: {profile['linkedin']}
@@ -135,16 +137,12 @@ Company: {profile['targets']['company']}
 
 Tone:
 - Professional
-- Confident but not arrogant
-- Human, not AI-like
-
-Structure:
-1) Interest in role + company
-2) Relevant experience & skills
-3) Call to action
+- Confident
+- Clear
+- No AI buzzwords
+[/INST]
 """
         return self._generate(prompt, 450)
-
 
 # -------------------------------------------------
 # DOCUMENT GENERATOR
@@ -171,12 +169,11 @@ class DocumentGenerator:
         header.runs[0].font.size = Pt(24)
         header.runs[0].bold = True
         header.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        
+
         contact = doc.add_paragraph(
             f"{profile['email']} | {profile['phone']} | {profile['linkedin']}"
         )
         contact.alignment = WD_ALIGN_PARAGRAPH.CENTER
-
 
         doc.add_heading("Professional Summary", level=2)
         doc.add_paragraph(summary)
@@ -212,36 +209,18 @@ class DocumentGenerator:
 # OBJECTS
 # -------------------------------------------------
 ats = ATSOptimizer()
-generator = ContentGenerator(model, tokenizer)
+generator = ContentGenerator(hf_client)
 docgen = DocumentGenerator()
 
 # -------------------------------------------------
-# SIDEBAR UI (UPDATED)
-# -------------------------------------------------
-# -------------------------------------------------
-# SIDEBAR UI (ENHANCED)
+# SIDEBAR UI
 # -------------------------------------------------
 st.sidebar.title("⚙️ Candidate Details")
 
-user_name = st.sidebar.text_input(
-    "Full Name",
-    value="Anila R"
-)
-
-user_email = st.sidebar.text_input(
-    "Email",
-    value="anila.r@email.com"
-)
-
-user_phone = st.sidebar.text_input(
-    "Phone Number",
-    value="+91 98765 43210"
-)
-
-user_linkedin = st.sidebar.text_input(
-    "LinkedIn Profile",
-    value="https://linkedin.com/in/anilar"
-)
+user_name = st.sidebar.text_input("Full Name", "Anila R")
+user_email = st.sidebar.text_input("Email", "anila.r@email.com")
+user_phone = st.sidebar.text_input("Phone", "+91 98765 43210")
+user_linkedin = st.sidebar.text_input("LinkedIn", "https://linkedin.com/in/anilar")
 
 st.sidebar.markdown("---")
 
@@ -252,13 +231,10 @@ profile_key = st.sidebar.selectbox(
 )
 
 profile = SAMPLE_PROFILES[profile_key].copy()
-
-# 🔥 Inject sidebar data into profile
 profile["name"] = user_name
 profile["email"] = user_email
 profile["phone"] = user_phone
 profile["linkedin"] = user_linkedin
-
 
 # -------------------------------------------------
 # MAIN UI
@@ -266,7 +242,7 @@ profile["linkedin"] = user_linkedin
 st.title("🤖 AI Resume & Portfolio Builder")
 
 if st.button("✨ Generate Resume & Portfolio"):
-    with st.spinner("Generating AI content..."):
+    with st.spinner("Generating professional resume content..."):
         keywords = ats.extract_keywords(profile["targets"]["job_description"])
         summary = generator.generate_summary(profile)
 
@@ -291,7 +267,6 @@ if st.button("✨ Generate Resume & Portfolio"):
         st.text_area("Cover Letter", cover_letter, height=450)
 
     with tabs[2]:
-        st.download_button("⬇️ Download Resume (HTML)", resume_html, "resume.html")
-        st.download_button("⬇️ Download Resume (DOCX)", open(docx_path, "rb"), "resume.docx")
-        st.download_button("⬇️ Download Portfolio (ZIP)", open(zip_path, "rb"), zip_path)
-
+        st.download_button("⬇️ Resume (HTML)", resume_html, "resume.html")
+        st.download_button("⬇️ Resume (DOCX)", open(docx_path, "rb"), "resume.docx")
+        st.download_button("⬇️ Portfolio (ZIP)", open(zip_path, "rb"), zip_path)
