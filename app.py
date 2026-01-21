@@ -193,8 +193,7 @@ if st.button("Generate Resume, Portfolio & Cover Letter"):
         summary = generator.resume_summary(profile)
         # Experience bullets
         exp_bullets = [generator.experience_bullets(exp) for exp in experiences]
-        # Cover letter
-        cover_letter_text = generator.cover_letter(profile)
+
         # Portfolio HTML
         portfolio_html = generator.portfolio_html(profile, list(zip(experiences, exp_bullets)), summary)
 
@@ -210,6 +209,8 @@ if st.button("Generate Resume, Portfolio & Cover Letter"):
             ("portfolio.docx", "portfolio.docx"),
             ("portfolio.html", "portfolio.html")
         ])
+         # Cover letter
+        cover_letter_text = generator.cover_letter(profile)
 
     # ------------------------------
     # DISPLAY
@@ -227,4 +228,5 @@ if st.button("Generate Resume, Portfolio & Cover Letter"):
     st.download_button("Download Cover Letter (DOCX)", open(cover_docx, "rb"), file_name="cover_letter.docx")
     st.download_button("Download Portfolio (DOCX)", open(portfolio_docx, "rb"), file_name="portfolio.docx")
     st.download_button("Download All Files (ZIP)", open(zip_file, "rb"), file_name="portfolio.zip")
+
 
