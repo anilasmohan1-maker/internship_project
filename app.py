@@ -37,19 +37,19 @@ def setup_nltk():
 setup_nltk()
 
 # -------------------------------------------------
-# LOAD HF INFERENCE CLIENT (REAL MODEL)
+# LOAD HF CLIENT (STABLE INSTRUCT MODEL)
 # -------------------------------------------------
 @st.cache_resource
 def load_hf_client():
     HF_API_KEY = st.secrets.get("HF_API_KEY") or os.getenv("HF_API_KEY")
     if not HF_API_KEY:
-        raise ValueError("HF_API_KEY not found. Set it in Streamlit secrets or environment.")
+        raise ValueError("HF_API_KEY not found. Set it in Streamlit secrets.")
 
     return InferenceClient(
-        model="google/flan-t5-large",
-        token=HF_API_KEY
+        model="mistralai/Mistral-7B-Instruct-v0.2",
+        token=HF_API_KEY,
+        timeout=120
     )
-
 
 hf_client = load_hf_client()
 
@@ -66,17 +66,17 @@ class ATSOptimizer:
         return [w for w, _ in Counter(filtered).most_common(top_n)]
 
 # -------------------------------------------------
-# AI CONTENT GENERATOR (MISTRAL 7B)
+# AI CONTENT GENERATOR
 # -------------------------------------------------
 class ContentGenerator:
     def __init__(self, client):
         self.client = client
 
-    def _generate(self, prompt, max_tokens=400):
+    def _generate(self, prompt, max_tokens=300):
         response = self.client.text_generation(
-            prompt,
+            prompt=prompt,
             max_new_tokens=max_tokens,
-            temperature=0.4,
+            temperature=0.35,
             top_p=0.9,
             repetition_penalty=1.1
         )
@@ -84,51 +84,43 @@ class ContentGenerator:
 
     def generate_summary(self, profile):
         prompt = f"""
-[INST]
-You are a professional resume writer.
-
 Write a realistic, ATS-optimized professional summary (3–4 lines).
 
-Candidate: {profile['name']}
+Candidate Name: {profile['name']}
 Target Role: {profile['targets']['title']}
-Skills: {", ".join(profile['skills'])}
+Key Skills: {", ".join(profile['skills'])}
 
 Rules:
-- Mention years of experience (estimate realistically)
-- Include tools, technologies, or domains
-- Avoid buzzwords and generic phrases
-- Sound like a real resume written by a human
-[/INST]
+- Mention estimated years of experience
+- Mention tools, frameworks, or domains
+- Avoid buzzwords
+- Sound human and professional
 """
-        return self._generate(prompt, 180)
+        return self._generate(prompt, 160)
 
     def generate_bullets(self, exp, keywords):
         prompt = f"""
-[INST]
-Write real resume bullet points.
+Write 3–4 resume bullet points.
 
 Role: {exp['title']}
 Company: {exp['company']}
-Context: {exp['description']}
+Work Description: {exp['description']}
 
 Rules:
-- 3–4 bullets
-- Start each bullet with •
-- Use action verbs
-- Mention tools, frameworks, metrics, datasets
-- ATS-optimized but human
+- Start bullets with action verbs
+- Include tools, technologies, datasets, metrics
+- ATS optimized but natural
+- No filler text
 
-Keywords: {", ".join(keywords)}
-[/INST]
+Important Keywords: {", ".join(keywords)}
 """
-        return self._generate(prompt, 250)
+        return self._generate(prompt, 220)
 
     def generate_cover_letter(self, profile):
         prompt = f"""
-[INST]
-Write a concise professional cover letter (3 paragraphs).
+Write a concise professional cover letter (3 short paragraphs).
 
-Candidate: {profile['name']}
+Candidate Name: {profile['name']}
 Email: {profile['email']}
 Phone: {profile['phone']}
 LinkedIn: {profile['linkedin']}
@@ -138,12 +130,11 @@ Company: {profile['targets']['company']}
 
 Tone:
 - Professional
-- Confident
 - Clear
+- Confident
 - No AI buzzwords
-[/INST]
 """
-        return self._generate(prompt, 450)
+        return self._generate(prompt, 350)
 
 # -------------------------------------------------
 # DOCUMENT GENERATOR
@@ -232,10 +223,12 @@ profile_key = st.sidebar.selectbox(
 )
 
 profile = SAMPLE_PROFILES[profile_key].copy()
-profile["name"] = user_name
-profile["email"] = user_email
-profile["phone"] = user_phone
-profile["linkedin"] = user_linkedin
+profile.update({
+    "name": user_name,
+    "email": user_email,
+    "phone": user_phone,
+    "linkedin": user_linkedin
+})
 
 # -------------------------------------------------
 # MAIN UI
@@ -271,5 +264,3 @@ if st.button("✨ Generate Resume & Portfolio"):
         st.download_button("⬇️ Resume (HTML)", resume_html, "resume.html")
         st.download_button("⬇️ Resume (DOCX)", open(docx_path, "rb"), "resume.docx")
         st.download_button("⬇️ Portfolio (ZIP)", open(zip_path, "rb"), zip_path)
-
-
