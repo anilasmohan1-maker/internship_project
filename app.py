@@ -75,56 +75,76 @@ class ContentGenerator:
             output = self.model.generate(
                 **inputs,
                 max_new_tokens=max_tokens,
-                temperature=0.25,
+                temperature=0.3,
                 top_p=0.9,
-                repetition_penalty=1.1
+                repetition_penalty=1.15
             )
         text = self.tokenizer.decode(output[0], skip_special_tokens=True)
         return text.replace(prompt, "").strip()
 
+    # 🔹 PROFESSIONAL SUMMARY
     def generate_summary(self, profile):
         prompt = f"""
-Write a professional resume summary (3–4 lines).
-Use real-world tone, ATS-friendly language, and measurable impact.
+Write a strong professional resume summary (3–4 lines).
 
-Candidate Name: {profile['name']}
+Candidate: {profile['name']}
 Target Role: {profile['targets']['title']}
-Experience Level: {profile['targets'].get('experience_level', 'Entry to Mid')}
-Core Skills: {", ".join(profile['skills'][:8])}
+Experience: {profile['targets'].get('experience_level', 'Entry to Mid')}
+Key Skills: {", ".join(profile['skills'][:10])}
 
-Avoid generic phrases. Sound like a real resume.
+Rules:
+- Mention years of experience (estimate if needed)
+- Highlight impact, not responsibilities
+- ATS-friendly but natural
+- Avoid buzzwords like "dynamic", "passionate", "results-driven"
 """
-        return self._generate(prompt, 180)
+        return self._generate(prompt, 200)
 
+    # 🔹 EXPERIENCE BULLETS
     def generate_bullets(self, exp, keywords):
         prompt = f"""
-Generate 3–4 strong resume bullet points.
+Generate 3–4 resume bullet points.
 
 Role: {exp['title']}
 Company: {exp['company']}
-Context: {exp['description']}
+Work Description: {exp['description']}
 
-Rules:
-- Start each bullet with an action verb
-- Include tools, technologies, or metrics where possible
-- Optimize for ATS using keywords below
+Guidelines:
+- Start with strong action verbs
+- Include tools, frameworks, or technologies
+- Add measurable impact where possible (%, time saved, scale)
+- One bullet per line, start with •
+- Optimize for ATS
 
-Keywords: {", ".join(keywords[:10])}
+Keywords: {", ".join(keywords[:12])}
 """
-        return self._generate(prompt, 220)
+        return self._generate(prompt, 240)
 
+    # 🔹 COVER LETTER
     def generate_cover_letter(self, profile):
         prompt = f"""
-Write a concise, professional cover letter.
+Write a concise, professional cover letter (3 paragraphs).
 
 Candidate Name: {profile['name']}
+Email: {profile['email']}
+Phone: {profile['phone']}
+LinkedIn: {profile['linkedin']}
+
 Target Role: {profile['targets']['title']}
 Company: {profile['targets']['company']}
 
-Tone: confident, professional, human.
-Avoid buzzwords and clichés.
+Tone:
+- Professional
+- Confident but not arrogant
+- Human, not AI-like
+
+Structure:
+1) Interest in role + company
+2) Relevant experience & skills
+3) Call to action
 """
-        return self._generate(prompt, 420)
+        return self._generate(prompt, 450)
+
 
 # -------------------------------------------------
 # DOCUMENT GENERATOR
@@ -151,6 +171,12 @@ class DocumentGenerator:
         header.runs[0].font.size = Pt(24)
         header.runs[0].bold = True
         header.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        
+        contact = doc.add_paragraph(
+            f"{profile['email']} | {profile['phone']} | {profile['linkedin']}"
+        )
+        contact.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
 
         doc.add_heading("Professional Summary", level=2)
         doc.add_paragraph(summary)
@@ -192,12 +218,32 @@ docgen = DocumentGenerator()
 # -------------------------------------------------
 # SIDEBAR UI (UPDATED)
 # -------------------------------------------------
+# -------------------------------------------------
+# SIDEBAR UI (ENHANCED)
+# -------------------------------------------------
 st.sidebar.title("⚙️ Candidate Details")
 
 user_name = st.sidebar.text_input(
     "Full Name",
     value="Anila R"
 )
+
+user_email = st.sidebar.text_input(
+    "Email",
+    value="anila.r@email.com"
+)
+
+user_phone = st.sidebar.text_input(
+    "Phone Number",
+    value="+91 98765 43210"
+)
+
+user_linkedin = st.sidebar.text_input(
+    "LinkedIn Profile",
+    value="https://linkedin.com/in/anilar"
+)
+
+st.sidebar.markdown("---")
 
 profile_key = st.sidebar.selectbox(
     "Choose Sample Profile",
@@ -206,7 +252,13 @@ profile_key = st.sidebar.selectbox(
 )
 
 profile = SAMPLE_PROFILES[profile_key].copy()
-profile["name"] = user_name   # 🔥 Inject sidebar name into resume
+
+# 🔥 Inject sidebar data into profile
+profile["name"] = user_name
+profile["email"] = user_email
+profile["phone"] = user_phone
+profile["linkedin"] = user_linkedin
+
 
 # -------------------------------------------------
 # MAIN UI
@@ -242,3 +294,4 @@ if st.button("✨ Generate Resume & Portfolio"):
         st.download_button("⬇️ Download Resume (HTML)", resume_html, "resume.html")
         st.download_button("⬇️ Download Resume (DOCX)", open(docx_path, "rb"), "resume.docx")
         st.download_button("⬇️ Download Portfolio (ZIP)", open(zip_path, "rb"), zip_path)
+
