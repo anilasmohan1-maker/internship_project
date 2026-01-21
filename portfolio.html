@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+body {
+    font-family: "Segoe UI", Arial, sans-serif;
+    margin: 40px;
+    color: #2c3e50;
+    line-height: 1.6;
+}
+.header {
+    border-bottom: 3px solid #1f4bd8;
+    padding-bottom: 15px;
+    margin-bottom: 25px;
+}
+h1 {
+    margin: 0;
+    font-size: 34px;
+}
+.contact {
+    font-size: 14px;
+    color: #555;
+}
+.section {
+    margin-bottom: 25px;
+}
+.section-title {
+    font-size: 20px;
+    font-weight: bold;
+    color: #1f4bd8;
+    border-bottom: 2px solid #ddd;
+    margin-bottom: 10px;
+}
+.job {
+    margin-bottom: 15px;
+}
+.job-title {
+    font-weight: bold;
+    font-size: 16px;
+}
+.company {
+    font-style: italic;
+    color: #666;
+}
+.date {
+    float: right;
+    color: #999;
+}
+ul {
+    margin-top: 8px;
+}
+li {
+    margin-bottom: 6px;
+}
+.skills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.skill {
+    background: #eef2ff;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+}
+</style>
+</head>
+
+<body>
+
+
+<div class="header">
+    <h1>{{ profile.name }}</h1>
+    <p>
+      {{ profile.email }} |
+      {{ profile.phone }} |
+      <a href="{{ profile.linkedin }}">{{ profile.linkedin }}</a>
+    </p>
+</div>
+
+<div class="section">
+    <div class="section-title">Professional Summary</div>
+    <p>{{ summary }}</p>
+</div>
+
+<div class="section">
+    <div class="section-title">Experience</div>
+    {% for exp, bullets in exp_with_bullets %}
+    <div class="job">
+        <div>
+            <span class="job-title">{{ exp.title }}</span>
+            <span class="date">{{ exp.start_date }} – {{ exp.end_date }}</span>
+        </div>
+        <div class="company">{{ exp.company }} | {{ exp.location }}</div>
+        <div style="white-space: pre-line">{{ bullets }}</div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="section">
+    <div class="section-title">Education</div>
+    {% for edu in profile.education %}
+    <div class="job">
+        <span class="job-title">{{ edu.degree }}</span>
+        <span class="date">{{ edu.graduation_date }}</span>
+        <div class="company">{{ edu.institution }} | GPA: {{ edu.gpa }}</div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="section">
+    <div class="section-title">Skills</div>
+    <div class="skills">
+        {% for skill in profile.skills %}
+        <span class="skill">{{ skill }}</span>
+        {% endfor %}
+    </div>
+</div>
+
+</body>
+</html>
+
+
