@@ -7,7 +7,7 @@ from pathlib import Path
 import zipfile
 import json
 from datetime import datetime
-
+import os
 # ------------------------------
 # PAGE CONFIG
 # ------------------------------
@@ -22,7 +22,7 @@ if not HF_API_KEY:
     st.stop()
 
 client = InferenceClient(
-    model="togethercomputer/RedPajama-INCITE-Chat-3B-v1",
+    model="mistralai/Mistral-7B-Instruct-v0.2",
     token=HF_API_KEY
 )
 
