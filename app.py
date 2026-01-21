@@ -183,7 +183,7 @@ for i in range(num_exp):
 # ------------------------------
 # MAIN UI
 # ------------------------------
-st.title("🤖 AI Resume & Portfolio Builder (HF API)")
+st.title("🤖 AI Resume & Portfolio Builder")
 
 generator = ChatbotGenerator()
 
@@ -227,3 +227,4 @@ if st.button("Generate Resume, Portfolio & Cover Letter"):
     st.download_button("Download Cover Letter (DOCX)", open(cover_docx, "rb"), file_name="cover_letter.docx")
     st.download_button("Download Portfolio (DOCX)", open(portfolio_docx, "rb"), file_name="portfolio.docx")
     st.download_button("Download All Files (ZIP)", open(zip_file, "rb"), file_name="portfolio.zip")
+
