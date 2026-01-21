@@ -68,20 +68,15 @@ li {
 </head>
 
 <body>
-<h1>{{ profile.name }}</h1>
-<p>
-  {{ profile.email }} |
-  {{ profile.phone }} |
-  <a href="{{ profile.linkedin }}">{{ profile.linkedin }}</a>
-</p>
+
 
 <div class="header">
     <h1>{{ profile.name }}</h1>
-    <div class="contact">
-        {{ profile.email }} | {{ profile.phone }} | {{ profile.location }}
-        {% if profile.linkedin %}| {{ profile.linkedin }}{% endif %}
-        {% if profile.github %}| {{ profile.github }}{% endif %}
-    </div>
+    <p>
+      {{ profile.email }} |
+      {{ profile.phone }} |
+      <a href="{{ profile.linkedin }}">{{ profile.linkedin }}</a>
+    </p>
 </div>
 
 <div class="section">
@@ -125,4 +120,5 @@ li {
 
 </body>
 </html>
+
 
