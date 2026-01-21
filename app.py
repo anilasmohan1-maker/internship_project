@@ -24,41 +24,28 @@ st.set_page_config(
 )
 
 # -------------------------------------------------
-# NLTK SETUP (CACHED)
+# NLTK SETUP
 # -------------------------------------------------
-
 @st.cache_resource
 def setup_nltk():
     nltk.download("punkt", quiet=True)
-    nltk.download("punkt_tab", quiet=True)
     nltk.download("stopwords", quiet=True)
 
 setup_nltk()
 
 # -------------------------------------------------
-# MODEL LOADING (CACHED)
-# -------------------------------------------------
-# -------------------------------------------------
-# MODEL LOADING (MUST BE TOP-LEVEL)
+# MODEL LOADING
 # -------------------------------------------------
 @st.cache_resource
 def load_model():
     model_name = "sshleifer/tiny-gpt2"
-
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     tokenizer.pad_token = tokenizer.eos_token
-
     model = AutoModelForCausalLM.from_pretrained(model_name)
     model.eval()
-
     return tokenizer, model
 
-
-
 tokenizer, model = load_model()
-
-
-
 
 # -------------------------------------------------
 # ATS OPTIMIZER
@@ -75,7 +62,7 @@ class ATSOptimizer:
         return [w for w, _ in Counter(filtered).most_common(top_n)]
 
 # -------------------------------------------------
-# AI CONTENT GENERATOR
+# AI CONTENT GENERATOR (IMPROVED REALISM)
 # -------------------------------------------------
 class ContentGenerator:
     def __init__(self, model, tokenizer):
@@ -83,12 +70,12 @@ class ContentGenerator:
         self.tokenizer = tokenizer
 
     def _generate(self, prompt, max_tokens):
-        inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
+        inputs = self.tokenizer(prompt, return_tensors="pt")
         with torch.no_grad():
             output = self.model.generate(
                 **inputs,
                 max_new_tokens=max_tokens,
-                temperature=0.2,
+                temperature=0.25,
                 top_p=0.9,
                 repetition_penalty=1.1
             )
@@ -97,35 +84,47 @@ class ContentGenerator:
 
     def generate_summary(self, profile):
         prompt = f"""
-Write a concise ATS-optimized professional summary (3–4 sentences).
+Write a professional resume summary (3–4 lines).
+Use real-world tone, ATS-friendly language, and measurable impact.
 
-Name: {profile['name']}
+Candidate Name: {profile['name']}
 Target Role: {profile['targets']['title']}
-Key Skills: {", ".join(profile['skills'][:6])}
+Experience Level: {profile['targets'].get('experience_level', 'Entry to Mid')}
+Core Skills: {", ".join(profile['skills'][:8])}
+
+Avoid generic phrases. Sound like a real resume.
 """
         return self._generate(prompt, 180)
 
     def generate_bullets(self, exp, keywords):
         prompt = f"""
-Generate 3–4 resume bullet points.
-Start each bullet with • and use ATS keywords.
+Generate 3–4 strong resume bullet points.
 
 Role: {exp['title']}
 Company: {exp['company']}
-Description: {exp['description']}
-Keywords: {", ".join(keywords[:8])}
+Context: {exp['description']}
+
+Rules:
+- Start each bullet with an action verb
+- Include tools, technologies, or metrics where possible
+- Optimize for ATS using keywords below
+
+Keywords: {", ".join(keywords[:10])}
 """
         return self._generate(prompt, 220)
 
     def generate_cover_letter(self, profile):
         prompt = f"""
-Write a professional cover letter.
+Write a concise, professional cover letter.
 
-Candidate: {profile['name']}
+Candidate Name: {profile['name']}
 Target Role: {profile['targets']['title']}
 Company: {profile['targets']['company']}
+
+Tone: confident, professional, human.
+Avoid buzzwords and clichés.
 """
-        return self._generate(prompt, 400)
+        return self._generate(prompt, 420)
 
 # -------------------------------------------------
 # DOCUMENT GENERATOR
@@ -182,34 +181,37 @@ class DocumentGenerator:
             z.writestr("cover_letter.txt", cover_letter)
             z.writestr("profile.json", json.dumps(profile, indent=2))
         return zip_name
+
 # -------------------------------------------------
-# OBJECT CREATION (AFTER CLASSES)
+# OBJECTS
 # -------------------------------------------------
 ats = ATSOptimizer()
 generator = ContentGenerator(model, tokenizer)
 docgen = DocumentGenerator()
 
 # -------------------------------------------------
-# SIDEBAR UI
+# SIDEBAR UI (UPDATED)
 # -------------------------------------------------
-st.sidebar.title("⚙️ Profile Selection")
+st.sidebar.title("⚙️ Candidate Details")
+
+user_name = st.sidebar.text_input(
+    "Full Name",
+    value="Anila R"
+)
 
 profile_key = st.sidebar.selectbox(
     "Choose Sample Profile",
     list(SAMPLE_PROFILES.keys()),
-    index=0  # Software Engineer default
+    index=0
 )
 
-profile = SAMPLE_PROFILES[profile_key]
+profile = SAMPLE_PROFILES[profile_key].copy()
+profile["name"] = user_name   # 🔥 Inject sidebar name into resume
 
 # -------------------------------------------------
 # MAIN UI
 # -------------------------------------------------
 st.title("🤖 AI Resume & Portfolio Builder")
-
-ats = ATSOptimizer()
-generator = ContentGenerator(model, tokenizer)
-docgen = DocumentGenerator()
 
 if st.button("✨ Generate Resume & Portfolio"):
     with st.spinner("Generating AI content..."):
@@ -240,9 +242,3 @@ if st.button("✨ Generate Resume & Portfolio"):
         st.download_button("⬇️ Download Resume (HTML)", resume_html, "resume.html")
         st.download_button("⬇️ Download Resume (DOCX)", open(docx_path, "rb"), "resume.docx")
         st.download_button("⬇️ Download Portfolio (ZIP)", open(zip_path, "rb"), zip_path)
-
-
-
-
-
-
